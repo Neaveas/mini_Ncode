@@ -4,7 +4,8 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from .config import MEMORY_DIR, SKILL_DIR, load_settings
+from .config import MEMORY_DIR, SKILL_DIR, TRANSCRIPT_DIR, TOOL_RESULTS_DIR, load_settings
+from .context import ContextCompactor
 from .hooks import create_hooks
 from .logging_setup import setup_logger
 from .memory_store import rebuild_memory_index
@@ -40,6 +41,7 @@ async def main() -> None:
     registry = ToolRegistry()
 
     with Anthropic(api_key=settings.api_key, base_url=settings.base_url) as client:
+        compactor = ContextCompactor(client, settings.model, TRANSCRIPT_DIR, TOOL_RESULTS_DIR)
         registry.add_provider(create_local_provider(
             client=client, model=settings.model, skills=skills, todo=todo,
         ))
@@ -75,6 +77,7 @@ async def main() -> None:
                 await agent_loop(
                     messages, client=client, model=settings.model,
                     tool_registry=registry, skills=skills, hooks=hooks,
+                    compactor=compactor, active_request=query,
                 )
                 logger.debug("Messages: %s", messages[-3:])
                 last = messages[-1]["content"]

@@ -10,6 +10,8 @@ WORKDIR = Path.cwd()
 MEMORY_DIR = WORKDIR / ".memory"
 MEMORY_INDEX = MEMORY_DIR / "MEMORY.md"
 SKILL_DIR = WORKDIR / ".skills"
+TRANSCRIPT_DIR = WORKDIR / ".transcripts"
+TOOL_RESULTS_DIR = WORKDIR / ".task_outputs" / "tool-results"
 
 MEMORY_TYPES = ("user", "feedback", "project", "reference")
 TEMPORARY_MEMORY_MARKERS = (

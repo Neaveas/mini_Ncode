@@ -8,6 +8,7 @@
 - **任务规划**：使用 `todo_write` 管理待办，最多 20 项，同时最多一项处于进行中；连续三轮工具调用未更新 Todo 时加入提醒。
 - **技能加载**：扫描 `.skills/*/SKILL.md`，将技能目录提供给模型，通过 `load_skill` 加载完整指南。
 - **持久化记忆**：在 `.memory/` 保存记忆和索引，通过模型召回相关记录、抽取长期信息，并在达到阈值后整合。
+- **上下文压缩**：主循环与子任务共用分层压缩机制，支持工具结果落盘、历史裁剪、模型摘要、`compact` 工具，以及上下文超限后的单次恢复。
 - **独立子任务**：通过 `task` 启动独立对话上下文的子任务，返回最终文本。
 - **MCP 接入**：配置高德 API Key 后，加载高德地图 MCP 工具。
 - **钩子与日志**：提供用户输入、工具执行前后、回合结束钩子，以及部分命令和越界文件访问的权限检查；日志写入 `.logs/agent.log`。
@@ -58,25 +59,26 @@ LLM_API_KEY=你的模型服务密钥
 
 ### 3. 启动
 
-当前可以直接调用应用模块：
+启动命令：
 
 ```powershell
-python -c "from mini_Ncode.app import run; run()"
+python mini_Ncode.py
 ```
 
 输入问题后按回车发送。输入 `q`、`quit`、`exit` 或空行退出。
 
-根目录的 `mini_Ncode.py` 仍引用旧包名 `mini_agent2`，尚不能直接用作新入口。将它的导入改为 `from mini_Ncode.app import main, run` 后，即可使用 `python mini_Ncode.py` 启动。
+也可以使用 `python -c "from mini_Ncode.app import run; run()"` 直接调用应用模块。
 
 ## 项目结构
 
 ```text
 mini_Ncode/
-├── mini_Ncode.py          # 启动脚本，导入路径待同步
+├── mini_Ncode.py          # 启动脚本
 ├── mini_Ncode/            # 模块化实现
 │   ├── app.py            # 组件初始化、命令行交互、资源关闭
 │   ├── config.py         # 环境配置、路径和常量
 │   ├── runner.py         # 主对话循环、提示词、Todo 提醒
+│   ├── context.py        # 上下文压缩、输出归档和超限恢复
 │   ├── tool_types.py     # 工具定义、结果和 Provider 接口
 │   ├── providers.py      # 本地函数与 MCP 服务适配
 │   ├── registry.py       # 工具聚合、模型工具格式、调用路由
@@ -89,16 +91,43 @@ mini_Ncode/
 │   ├── memory.py         # 模型驱动的记忆召回、抽取与整合
 │   ├── messages.py       # 消息文本和 JSON 提取
 │   └── logging_setup.py  # 控制台和滚动文件日志
-├── tests/test_agent2.py   # 离线测试，旧导入路径待同步
+├── tests/test_agent2.py   # 原有功能的离线测试
+├── tests/test_context.py  # 上下文压缩与循环接入测试
 ├── .skills/              # 技能目录
 ├── .memory/              # 记忆记录与 MEMORY.md 索引
+├── .transcripts/         # 压缩前的 JSONL 对话归档
+├── .task_outputs/        # 大工具结果的完整返回内容
 ├── .logs/                # 运行日志
 ├── agent.py              # 原始单文件版本
 ├── agent1.py             # 预留文件
-└── requirements.txt      # 依赖清单，待补充
+└── requirements.txt      # 依赖清单
 ```
 
 工作区、技能、记忆和日志路径以启动命令所在目录为基准，请从项目根目录运行。
+
+## 上下文压缩
+
+无需额外配置，压缩会在模型请求前自动检查。也可以在对话中让模型调用 `compact`，
+在当前整批工具结果收齐后生成摘要。主循环和 `task` 子任务均支持压缩。
+
+| 策略 | 默认行为 |
+| --- | --- |
+| 大结果落盘 | 单条工具结果超过 30,000 字符时保存到 `.task_outputs/tool-results/`，上下文保留路径和预览 |
+| 批次预算 | 同批结果超过 200,000 字符时，进一步缩短较大的结果，包含低于单条阈值的结果 |
+| 历史裁剪 | 超过 50 条消息后保留头部和近期交互，中间历史归档为 JSONL；工具调用与结果成组保留，边界处允许少量超出消息数 |
+| 轻量压缩 | 历史超过 50,000 字符时，优先把较旧且已被模型消费的工具结果换成归档路径，保留最近 3 条已消费结果 |
+| 摘要压缩 | 继续超限时缩短结果预览，再摘要更早的历史；通常保留最近 5 条，必要时收紧到最后一组完整交互 |
+| 超限恢复 | API 明确报告上下文过长时再压缩一次并重试；再次失败则返回错误，不无限重试 |
+
+默认参数位于 `mini_Ncode/context.py` 的 `ContextCompactor` 类中，保存路径位于 `config.py`。
+字符数用于估算消息历史大小，**不是 token 数**，也不包括 system 提示词和工具定义。
+摘要会额外调用模型；摘要输入最多 80,000 字符，输出上限为 2,000 tokens。
+单条过大的当前请求无法无损缩短，仍可能触发模型限制。
+
+压缩会保留当前请求和最近一组完整工具交互，历史和完整返回内容可通过 `read_file` 查阅。
+文件写入或摘要失败时保留原历史；主动 `compact` 失败会回传工具错误。
+压缩摘要被标记为参考数据，也不会作为新的用户事实送入持久化记忆抽取。
+`.transcripts/` 和 `.task_outputs/` 已加入 Git 忽略规则，压缩不会删除历史归档。
 
 ## 阅读和扩展
 
@@ -139,13 +168,14 @@ description: 说明这个技能适合什么任务
 
 测试使用假的模型客户端和 MCP 客户端，文件操作使用临时目录，不需要真实 API 密钥。覆盖工具注册与路由、文件操作、技能加载、Todo、记忆读写、子任务和主循环。
 
-目前 `tests/test_agent2.py` 仍使用重命名前的路径。运行前需同步其中的 `mini_agent2` 导入和 mock 路径为 `mini_Ncode`，并更新独立进程导入测试中的旧入口 `agent2` 引用。
-
-完成引用同步后，可运行：
+运行方式：
 
 ```powershell
 # 全部离线测试
-python -B -m unittest tests.test_agent2 -v
+python -B -m unittest discover -s tests -v
+
+# 只测试上下文压缩
+python -B -m unittest tests.test_context -v
 
 # 只测试主循环
 python -B -m unittest tests.test_agent2.RunnerTests -v

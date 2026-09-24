@@ -1,16 +1,18 @@
 """独立上下文的子任务循环；复用主应用的本地工具。"""
 from __future__ import annotations
 
-from .config import WORKDIR
+from .config import WORKDIR, TRANSCRIPT_DIR, TOOL_RESULTS_DIR
+from .context import COMPACTION_SYSTEM_HINT, ContextCompactor
 from .messages import extract_text
 
 
 SUBAGENT_SYSTEM_PROMPT = (
     f"你是一个位于 {WORKDIR} 的编程智能体。"
     "请完成给定的任务，然后返回简洁的最终答案。"
+    + COMPACTION_SYSTEM_HINT
 )
 
-SUBAGENT_TOOL_NAMES = ("bash", "read_file", "write_file", "edit_file", "glob")
+SUBAGENT_TOOL_NAMES = ("bash", "read_file", "write_file", "edit_file", "glob", "compact")
 SUBAGENT_MAX_TURNS = 30
 
 
@@ -29,12 +31,12 @@ def run_subagent(prompt: str, *, client, model: str, local_provider) -> str:
     ]
 
     messages = [{"role": "user", "content": prompt}]
+    compactor = ContextCompactor(client, model, TRANSCRIPT_DIR, TOOL_RESULTS_DIR)
 
     for _ in range(SUBAGENT_MAX_TURNS):
-        response = client.messages.create(
-            model=model,
+        response = compactor.create_response(
+            messages, prompt,
             system=SUBAGENT_SYSTEM_PROMPT,
-            messages=messages,
             tools=sub_tools,
             max_tokens=8000,
         )
@@ -46,6 +48,7 @@ def run_subagent(prompt: str, *, client, model: str, local_provider) -> str:
             return extract_text(response.content) or "(no summary)"
 
         results = []
+        compact_requested = False
         for block in tool_calls:
             entry = local_provider._tools.get(block.name)
             if entry is None:
@@ -54,6 +57,8 @@ def run_subagent(prompt: str, *, client, model: str, local_provider) -> str:
                 _, handler = entry
                 try:
                     output = str(handler(**block.input))
+                    if block.name == "compact":
+                        compact_requested = True
                 except Exception as e:
                     output = f"Error: {e}"
             print(f"  \033[90m[sub] {block.name}: {output[:100]}\033[0m")
@@ -63,6 +68,14 @@ def run_subagent(prompt: str, *, client, model: str, local_provider) -> str:
                 "content": output,
             })
         messages.append({"role": "user", "content": results})
+        if compact_requested:
+            try:
+                messages[:] = compactor.compact_history(messages, prompt)
+            except Exception as error:
+                for result in results:
+                    if any(b.name == "compact" and b.id == result["tool_use_id"] for b in tool_calls):
+                        result["content"] = f"Compaction failed; original history retained: {error}"
+                        result["is_error"] = True
 
     print("\033[35m[Subagent stopped]\033[0m")
     return "Subagent stopped after 30 turns without a final answer."

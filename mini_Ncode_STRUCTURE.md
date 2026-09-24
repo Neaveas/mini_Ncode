@@ -66,6 +66,17 @@ python mini_Ncode.py
 `create_local_provider()` 的 Todo 与技能也由调用方传入。
 因此测试可以替换这些依赖，而不必启动整个应用。
 
+## 上下文压缩
+
+`mini_Ncode/context.py` 的 `ContextCompactor` 负责大结果落盘、旧结果缩短、历史裁剪和模型摘要。
+`app.py` 在会话中创建压缩器，`runner.py` 在模型请求前调用，并在 `compact` 工具所在批次执行完后处理主动压缩。
+`subagent.py` 为每个子任务创建独立压缩器，复用同样的自动压缩与单次超限重试逻辑。
+
+历史归档保存在 `.transcripts/`，工具完整返回内容保存在 `.task_outputs/tool-results/`。
+工具调用与返回结果在裁剪时成组保留；摘要失败不替换原始历史。
+阈值、行为与限制见 [README 的上下文压缩说明](README.md#上下文压缩)。
+对应离线测试为 `tests/test_context.py`。
+
 ## 测试
 
 ```powershell

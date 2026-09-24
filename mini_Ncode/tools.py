@@ -181,6 +181,16 @@ def create_local_provider(*, client, model: str, skills: Skillloader, todo: Todo
 
 
     @local_provider.tool(
+        name="compact",
+        description="Summarize earlier conversation to free context space after the current tool batch.",
+        schema={"type": "object", "properties": {}, "additionalProperties": False},
+    )
+    def request_compaction() -> str:
+        # 这里只确认请求，由持有 messages 的对话循环在收齐全部结果后压缩。
+        return "Compaction requested after this tool batch."
+
+
+    @local_provider.tool(
         name="task",
         description=(
             "Run a subagent with fresh conversation context and return its final text."

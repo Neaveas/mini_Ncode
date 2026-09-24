@@ -91,7 +91,7 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
             registry.add_provider(provider)
             await registry.refresh()
             self.assertEqual({s['name'] for s in registry.to_llm()}, {
-                'bash', 'read_file', 'write_file', 'edit_file', 'glob', 'todo_write', 'load_skill', 'task',
+                'bash', 'read_file', 'write_file', 'edit_file', 'glob', 'todo_write', 'load_skill', 'task', 'compact',
             })
             with redirect_stdout(io.StringIO()):
                 result = await registry.invoke('todo_write', {'todos': [{'content': 'Check', 'status': 'pending'}]})

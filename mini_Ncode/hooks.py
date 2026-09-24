@@ -24,11 +24,59 @@ class HookManager:
         return None
 
 
-DENY_LIST = ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "dd if="]
+DENY_LIST = [    # Linux / Unix
+    "rm -rf /",
+    "sudo",
+    "shutdown",
+    "reboot",
+    "mkfs",
+    "dd if=",
+    # Windows
+    "format ",
+    "diskpart",
+    "bcdedit",
+    "vssadmin delete",
+    "reg delete HKLM",
+    "reg delete HKEY_LOCAL_MACHINE",
+    "takeown",
+    "cipher /w",
+    "net user",
+    "net localgroup",
+    "sc delete",
+    "taskkill /f",]
+#Windows 对应版本需要匹配：
+# del / erase
+# rmdir / rd（尤其是带 /s /q）
+# format
+# Remove-Item（PowerShell）
+
+# 路径中有 \ 的情况
 DESTRUCTIVE_COMMAND_WORD = re.compile(
-    r"(?i)(?:^|[;&|()\n])\s*(?:rm|del)(?=\s|$|[;&|()])"
+    r"(?i)(?:^|[;&|()\n\r]|&&|\|\|)\s*"
+    r"(?:del|erase|rmdir|rd|format|Remove-Item|ri|rm)\b"
 )
-DESTRUCTIVE = ["rm ", "> /etc/", "chmod 777"]
+
+DESTRUCTIVE = [
+    "rm ",
+    "> /etc/",
+    "chmod 777",
+    # Windows
+    "> C:\\Windows",
+    "> %systemroot%",
+    "> %windir%",
+    "del /f",
+    "del /q",
+    "del /s",
+    "rd /s",
+    "rmdir /s",
+    "format c:",
+    "icacls ",
+    "cacls ",
+    "attrib -r -h -s",
+    "Remove-Item -Recurse",
+    "Remove-Item -Force",
+    "Stop-Process",
+]
 
 
 def contains_destructive_command(command: str) -> bool:

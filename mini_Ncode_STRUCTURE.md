@@ -1,6 +1,6 @@
-# Agent 2 代码导航
+# mini_Ncode代码导航
 
-`agent2.py` 现在只负责启动，原有功能按职责放在 `mini_agent2/`。
+`mini_Ncode.py` 现在只负责启动，原有功能按职责放在 `mini_Ncode/`。
 `agent.py` 和 `agent1.py` 未修改。
 
 ## 启动
@@ -8,7 +8,7 @@
 在项目根目录运行，命令不变：
 
 ```powershell
-python agent2.py
+python mini_Ncode.py
 ```
 
 环境变量仍然沿用原来的 `.env`：
@@ -23,25 +23,26 @@ python agent2.py
 
 ## 到哪个文件找功能
 
-| 文件 | 职责 |
-| --- | --- |
-| `agent2.py` | 启动入口 |
-| `mini_agent2/app.py` | 创建客户端、组装工具与钩子、用户输入、输出回答、关闭资源 |
-| `mini_agent2/config.py` | 路径、记忆参数、环境变量读取 |
-| `mini_agent2/logging_setup.py` | 控制台日志和滚动文件日志 |
-| `mini_agent2/runner.py` | 系统提示词、模型与工具的循环、Todo 提醒、记忆流程 |
-| `mini_agent2/tool_types.py` | `ToolSpec`、`ToolResult`、`ToolProvider` 接口 |
-| `mini_agent2/providers.py` | 本地函数和 MCP 工具的执行适配 |
-| `mini_agent2/registry.py` | 工具聚合、名称冲突检查、模型工具格式、调用路由 |
-| `mini_agent2/tools.py` | 注册 bash、文件读写、glob、todo_write、load_skill、task |
-| `mini_agent2/subagent.py` | 独立上下文的子任务循环 |
-| `mini_agent2/hooks.py` | 钩子注册、权限检查、调用日志和结束统计 |
-| `mini_agent2/todo.py` | 待办状态校验和展示 |
-| `mini_agent2/skills.py` | 技能扫描、目录生成和加载 |
-| `mini_agent2/memory_store.py` | 记忆文件、索引、路径和记录校验，不调用模型 |
-| `mini_agent2/memory.py` | 通过模型召回、抽取和整合记忆 |
-| `mini_agent2/messages.py` | 从消息提取文本和 JSON 的共用函数 |
-| `tests/test_agent2.py` | 离线回归测试 |
+
+| 文件                           | 职责                                                     |
+| ------------------------------ | -------------------------------------------------------- |
+| `agent2.py`                    | 启动入口                                                 |
+| `mini_agent2/app.py`           | 创建客户端、组装工具与钩子、用户输入、输出回答、关闭资源 |
+| `mini_agent2/config.py`        | 路径、记忆参数、环境变量读取                             |
+| `mini_agent2/logging_setup.py` | 控制台日志和滚动文件日志                                 |
+| `mini_agent2/runner.py`        | 系统提示词、模型与工具的循环、Todo 提醒、记忆流程        |
+| `mini_agent2/tool_types.py`    | `ToolSpec`、`ToolResult`、`ToolProvider` 接口            |
+| `mini_agent2/providers.py`     | 本地函数和 MCP 工具的执行适配                            |
+| `mini_agent2/registry.py`      | 工具聚合、名称冲突检查、模型工具格式、调用路由           |
+| `mini_agent2/tools.py`         | 注册 bash、文件读写、glob、todo_write、load_skill、task  |
+| `mini_agent2/subagent.py`      | 独立上下文的子任务循环                                   |
+| `mini_agent2/hooks.py`         | 钩子注册、权限检查、调用日志和结束统计                   |
+| `mini_agent2/todo.py`          | 待办状态校验和展示                                       |
+| `mini_agent2/skills.py`        | 技能扫描、目录生成和加载                                 |
+| `mini_agent2/memory_store.py`  | 记忆文件、索引、路径和记录校验，不调用模型               |
+| `mini_agent2/memory.py`        | 通过模型召回、抽取和整合记忆                             |
+| `mini_agent2/messages.py`      | 从消息提取文本和 JSON 的共用函数                         |
+| `tests/test_agent2.py`         | 离线回归测试                                             |
 
 ## 建议阅读顺序
 

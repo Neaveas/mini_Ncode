@@ -110,8 +110,6 @@ class Skillloader:
 
     
 
-
-
 # ============================================================
 # 1. ToolSpec：工具的纯定义
 # ============================================================
@@ -127,6 +125,7 @@ class ToolSpec:
 # ============================================================
 # 2. ToolResult：统一返回结构
 # ============================================================
+
 
 @dataclass
 class ToolResult:
@@ -474,7 +473,7 @@ class ToolRegistry:
             self._specs = specs
             self._owner = owner
 
-    def to_llm(self) -> list[ToolSpec]:
+    def to_llm(self) -> list[dict]:
         return list({'name': spec.name, 'description': spec.description, 'input_schema': spec.input_schema} for spec in self._specs.values())
 
     async def invoke(self, name: str, arguments: dict) -> ToolResult:
@@ -515,7 +514,6 @@ model = os.getenv("MODEL")
 gd_api_key = os.getenv("AMAP_MAPS_API_KEY")
 client = Anthropic(api_key=os.getenv("LLM_API_KEY"), base_url=os.getenv("LLM_BASE_URL"))
 tool_registry = ToolRegistry()
-tool_registry = ToolRegistry()
 tool_registry.add_provider(LocalToolProvider())
 transport = StdioTransport(
     command="npx", args=["-y", "@amap/amap-maps-mcp-server"],
@@ -540,9 +538,9 @@ async def main():
                 break
             messages.append({"role": "user", "content": user_input})
             await agent_loop(messages)
-            logger.debug(f"Messages: {messages}")
+            logger.debug(f"Messages: {messages[-3:] if len(messages) >= 3 else messages}")
             logger.debug(f"last Message: {messages[-1]}")
-            print("Assistant:", messages[-1]["content"])
+            # print("Assistant:", messages[-1]["content"])
             for block in messages[-1]["content"]:
                 if getattr(block,'type',None) == "text":
                     print(f"Assistant: {block.text}")

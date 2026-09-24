@@ -12,14 +12,14 @@ from pathlib import Path
 from types import SimpleNamespace as NS
 from unittest.mock import AsyncMock, Mock, patch
 
-from mini_agent2 import app, memory, memory_store, runner
-from mini_agent2.config import Settings
-from mini_agent2.hooks import HookManager, create_hooks
-from mini_agent2.providers import LocalToolProvider, MCPToolProvider
-from mini_agent2.registry import ToolRegistry
-from mini_agent2.skills import Skillloader
-from mini_agent2.todo import TodoManager
-from mini_agent2.tools import create_local_provider
+from mini_Ncode import app, memory, memory_store, runner
+from mini_Ncode.config import Settings
+from mini_Ncode.hooks import HookManager, create_hooks
+from mini_Ncode.providers import LocalToolProvider, MCPToolProvider
+from mini_Ncode.registry import ToolRegistry
+from mini_Ncode.skills import Skillloader
+from mini_Ncode.todo import TodoManager
+from mini_Ncode.tools import create_local_provider
 
 
 def text(value):
@@ -107,7 +107,7 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
             skill_dir.mkdir(parents=True)
             (skill_dir / 'SKILL.md').write_text('---\nname: demo\ndescription: example\n---\nGuide', encoding='utf-8')
             provider = create_local_provider(client=None, model='test', skills=Skillloader(root / '.skills'), todo=TodoManager())
-            with patch('mini_agent2.tools.WORKDIR', root):
+            with patch('mini_Ncode.tools.WORKDIR', root):
                 await provider.call_tool('write_file', {'path': 'test.txt', 'content': 'before'})
                 await provider.call_tool('edit_file', {'path': 'test.txt', 'old_text': 'before', 'new_text': 'after'})
                 result = await provider.call_tool('read_file', {'path': 'test.txt'})
@@ -243,7 +243,7 @@ class ImportTests(unittest.TestCase):
             "import sys; sys.path.insert(0, sys.argv[1]); "
             "sys.modules['anthropic'] = None; sys.modules['fastmcp'] = None; "
             "sys.modules['dotenv'] = None; "
-            "import agent2; import mini_agent2.app; "
+            "import mini_Ncode; import mini_Ncode.app; "
             "from pathlib import Path; assert list(Path.cwd().iterdir()) == []"
         )
         with tempfile.TemporaryDirectory() as directory:

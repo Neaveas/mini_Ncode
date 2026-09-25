@@ -5,7 +5,6 @@ import re
 from typing import Any, Callable
 from .config import WORKDIR
 
-
 class HookManager:
     def __init__(self) -> None:
         self._hooks: dict[str, list[Callable]] = {
@@ -77,7 +76,8 @@ DESTRUCTIVE = [
     "Remove-Item -Force",
     "Stop-Process",
 ]
-
+import logging
+logger = logging.getLogger(__name__)
 
 def contains_destructive_command(command: str) -> bool:
     return bool(DESTRUCTIVE_COMMAND_WORD.search(command))
@@ -113,6 +113,7 @@ def permission_hook(block):
 def log_hook(block):
     args_preview = str(list(block.input.values()))[:80]
     print(f"\033[90m[HOOK] {block.name}({args_preview})\033[0m")
+    logger.debug(f"Tool call: {block.name}({args_preview})")
     return None
 
 

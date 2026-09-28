@@ -32,6 +32,7 @@ def build_system(relevant_memories: str = "", skill_catalog: str = "") -> str:
         COMPACTION_SYSTEM_HINT,
     ]
     if index:
+        #名字和描述
         sections.append(f"记忆目录：\n{index}")
     if relevant_memories:
         sections.append(f"相关记忆记录：\n{relevant_memories}")
@@ -97,6 +98,7 @@ async def agent_loop(
                     "type": "tool_result",
                     "tool_use_id": block.id,
                     "content": str(blocked),
+                    "is_error": True,
                 })
                 continue
 
@@ -111,6 +113,7 @@ async def agent_loop(
                 "type": "tool_result",
                 "tool_use_id": block.id,
                 "content": str(content),
+                "is_error": not result.ok,
             })
             if block.name == "compact" and result.ok:
                 compact_results.append(results[-1])

@@ -7,6 +7,7 @@ import logging
 from contextlib import AsyncExitStack
 from typing import Any, Callable, Iterable
 from .tool_types import ToolProvider, ToolResult, ToolSpec
+from pydantic import BaseModel,ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ class LocalToolProvider(ToolProvider):
 
     def __init__(self) -> None:
         self._tools: dict[str, tuple[ToolSpec, Callable]] = {}
+        self._input_modes:dict[str, type[BaseModel]] = {}
 
     def tool(
         self,
@@ -23,23 +25,33 @@ class LocalToolProvider(ToolProvider):
         name: str | None = None,
         description: str = "",
         schema: dict | None = None,
+        input_model: type[BaseModel] | None = None,
         dangerous: bool = False,
         read_only: bool = False,
         timeout: float | None = None,
     ):
         def decorator(func: Callable):
             tool_name = name or func.__name__
+            if schema is not None and input_model is not None:
+                raise ValueError("不能同时指定 schema 和 input_model")
+            if input_model is not None:
+                tool_schema = input_model.model_json_schema()
+            else:
+                tool_schema = (schema if schema is not None else {"type": "object", "properties": {}})
+
             spec = ToolSpec(
                 name=tool_name,
                 description=description
                 or (func.__doc__ or "").strip().split("\n")[0],
-                input_schema=schema or {"type": "object", "properties": {}},
+                input_schema= tool_schema ,
                 metadata={
                     "source": "local", "dangerous": dangerous,
                     "read_only": read_only, "timeout": timeout,
                 },
             )
             self.register(spec, func)
+            if input_model is not None:
+                self._input_modes[tool_name] = input_model
             return func
         return decorator
 
@@ -70,6 +82,13 @@ class LocalToolProvider(ToolProvider):
         if entry is None:
             return ToolResult(ok=False, error=f"未知本地工具: {name}")
         spec, handler = entry
+        input_model = self._input_modes.get(name)
+        if input_model is not None:
+            try:
+                validated_args = input_model.model_validate(arguments)
+            except ValidationError as e:
+                return ToolResult(ok=False, error=f"参数验证失败: {e}", metadata={"source": "local", "error_code": "INVALID_ARGUMENT",})
+            arguments = validated_args.model_dump()
         try:
             if inspect.iscoroutinefunction(handler):
                 output = await handler(**arguments)

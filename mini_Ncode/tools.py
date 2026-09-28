@@ -8,6 +8,7 @@ from .providers import LocalToolProvider
 from .skills import Skillloader
 from .subagent import run_subagent
 from .todo import TodoManager
+from .tool_inputs import ReadFileArgs
 
 
 def create_local_provider(*, client, model: str, skills: Skillloader, todo: TodoManager) -> LocalToolProvider:
@@ -24,38 +25,40 @@ def create_local_provider(*, client, model: str, skills: Skillloader, todo: Todo
         dangerous=True,
     )
     def run_bash(command: str) -> str:
-        try:
-            r = subprocess.run(
-                command, shell=True, cwd=WORKDIR,
-                capture_output=True, text=True, errors="replace", timeout=120,encoding="utf-8",
+
+        r = subprocess.run(
+            command, shell=True, cwd=WORKDIR,
+            capture_output=True, text=True, errors="replace", timeout=120,encoding="utf-8",
+        )
+        out = (r.stdout + r.stderr).strip()
+        if r.returncode != 0:
+            raise RuntimeError(
+            f"命令执行失败，退出码 {r.returncode}：{out[:2000]}"
             )
-            out = (r.stdout + r.stderr).strip()
-            return out[:50000] if out else "(no output)"
-        except subprocess.TimeoutExpired:
-            return "Error: Timeout (120s)"
+        return out[:50000] if out else "(no output)"
+
 
 
     @local_provider.tool(
         name="read_file",
         description="Read file contents.",
-        schema={
-            "type": "object",
-            "properties": {
-                "path": {"type": "string"},
-                "limit": {"type": "integer"},
-            },
-            "required": ["path"],
-        },
+        input_model= ReadFileArgs,
+        # schema={
+        #     "type": "object",
+        #     "properties": {
+        #         "path": {"type": "string"},
+        #         "limit": {"type": "integer"},
+        #     },
+        #     "required": ["path"],
+        # },
         read_only=True,
     )
     def run_read(path: str, limit: int | None = None) -> str:
-        try:
-            lines = (WORKDIR / path).resolve().read_text(encoding="utf-8").splitlines()
-            if limit and limit < len(lines):
-                lines = lines[:limit] + [f"... ({len(lines) - limit} more lines)"]
-            return "\n".join(lines)
-        except Exception as e:
-            return f"Error: {e}"
+        lines = (WORKDIR / path).resolve().read_text(encoding="utf-8").splitlines()
+        if limit and limit < len(lines):
+            lines = lines[:limit] + [f"... ({len(lines) - limit} more lines)"]
+        return "\n".join(lines)
+
 
 
     @local_provider.tool(
@@ -72,13 +75,11 @@ def create_local_provider(*, client, model: str, skills: Skillloader, todo: Todo
         dangerous=True,
     )
     def run_write(path: str, content: str) -> str:
-        try:
-            file_path = (WORKDIR / path).resolve()
-            file_path.parent.mkdir(parents=True, exist_ok=True)
-            file_path.write_text(content, encoding="utf-8")
-            return f"Wrote {len(content)} bytes to {path}"
-        except Exception as e:
-            return f"Error: {e}"
+
+        file_path = (WORKDIR / path).resolve()
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text(content, encoding="utf-8")
+        return f"Wrote {len(content)} bytes to {path}"
 
 
     @local_provider.tool(
@@ -96,15 +97,14 @@ def create_local_provider(*, client, model: str, skills: Skillloader, todo: Todo
         dangerous=True,
     )
     def run_edit(path: str, old_text: str, new_text: str) -> str:
-        try:
-            file_path = (WORKDIR / path).resolve()
-            text = file_path.read_text(encoding="utf-8")
-            if old_text not in text:
-                return f"Error: text not found in {path}"
-            file_path.write_text(text.replace(old_text, new_text, 1), encoding="utf-8")
-            return f"Edited {path}"
-        except Exception as e:
-            return f"Error: {e}"
+
+        file_path = (WORKDIR / path).resolve()
+        text = file_path.read_text(encoding="utf-8")
+        if old_text not in text:
+            raise ValueError(f"未找到待替换文本：{path}")
+        file_path.write_text(text.replace(old_text, new_text, 1), encoding="utf-8")
+        return f"Edited {path}"
+
 
 
     @local_provider.tool(
@@ -118,18 +118,16 @@ def create_local_provider(*, client, model: str, skills: Skillloader, todo: Todo
         read_only=True,
     )
     def run_glob(pattern: str) -> str:
-        try:
-            matches = sorted({
-                match for match in glob_module.glob(
-                    pattern, root_dir=WORKDIR, recursive=True)
-                if (WORKDIR / match).resolve().is_relative_to(WORKDIR)
-            })
-            shown = matches[:200]
-            if len(matches) > 200:
-                shown.append("... (more matches omitted; narrow the pattern)")
-            return "\n".join(shown) if shown else "(no matches)"
-        except Exception as e:
-            return f"Error: {e}"
+        matches = sorted({
+            match for match in glob_module.glob(
+                pattern, root_dir=WORKDIR, recursive=True)
+            if (WORKDIR / match).resolve().is_relative_to(WORKDIR)
+        })
+        shown = matches[:200]
+        if len(matches) > 200:
+            shown.append("... (more matches omitted; narrow the pattern)")
+        return "\n".join(shown) if shown else "(no matches)"
+
 
 
     @local_provider.tool(
@@ -161,7 +159,7 @@ def create_local_provider(*, client, model: str, skills: Skillloader, todo: Todo
         try:
             output = todo.update(todos)
         except ValueError as e:
-            return f"Error: {e}"
+            raise
         print(f"\n\033[33m## Current Tasks\033[0m\n{output}")
         return output
 

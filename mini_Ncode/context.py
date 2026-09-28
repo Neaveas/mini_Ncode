@@ -135,6 +135,7 @@ class ContextCompactor:
             file.write(output)
         return path
 
+    #检查是否已经落盘，避免重复写入 落盘返回path，未落盘返回None
     def persisted_output_path(self, output: str) -> Path | None:
         candidate = None
         if output.startswith("<persisted-output>\n"):
